@@ -1,9 +1,10 @@
 import "./App.css";
+import VideoCutter from "./components/VideoCutter";
 
 function App() {
   return (
     <main>
-      <h1>Hello world</h1>
+      <VideoCutter />
     </main>
   );
 }
