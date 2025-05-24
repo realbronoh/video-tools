@@ -1,11 +1,46 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
+import type { time_hhmmss } from "../types/time";
+import TimeInput from "./TimeInput";
 
-const getTimeDelta = (startTime: string, endTime: string): string => {
-  const start = parseInt(startTime);
-  const end = parseInt(endTime);
+const DEFAULT_TIME_HHMMSS: time_hhmmss = {
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+};
+
+const convertTimeToSeconds = (time: time_hhmmss): number => {
+  const { hours, minutes, seconds } = time;
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
+const getTimeFormatString = (time: time_hhmmss): string => {
+  const { hours, minutes, seconds } = time;
+  // format as HH:MM:SS with pad 2
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+};
+
+const getTimeDiffInSeconds = (
+  startTime: time_hhmmss,
+  endTime: time_hhmmss
+): string => {
+  const start = convertTimeToSeconds(startTime);
+  const end = convertTimeToSeconds(endTime);
   return (end - start).toString();
+};
+
+const convertSecondsToTimeHHMMSS = (time: number): time_hhmmss => {
+  const hours = Math.floor(time / 3600);
+  const minutes = Math.floor((time % 3600) / 60);
+  const seconds = Math.floor(time % 60);
+
+  return {
+    hours,
+    minutes,
+    seconds,
+  };
 };
 
 const VideoCutter = () => {
@@ -13,8 +48,8 @@ const VideoCutter = () => {
   const [loaded, setLoaded] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
-  const [startTime, setStartTime] = useState("0");
-  const [endTime, setEndTime] = useState("10");
+  const [startTime, setStartTime] = useState<time_hhmmss>(DEFAULT_TIME_HHMMSS);
+  const [endTime, setEndTime] = useState<time_hhmmss>(DEFAULT_TIME_HHMMSS);
   const [isProcessing, setIsProcessing] = useState(false);
   const [duration, setDuration] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
@@ -39,7 +74,7 @@ const VideoCutter = () => {
         ffmpeg.on("progress", ({ progress, time }) => {
           if (isProcessing) {
             console.log(
-              `Processing: ${Math.round(progress * 100)}% (${time}s)`,
+              `Processing: ${Math.round(progress * 100)}% (${time}s)`
             );
           }
         });
@@ -48,11 +83,11 @@ const VideoCutter = () => {
         await ffmpeg.load({
           coreURL: await toBlobURL(
             `${baseURL}/ffmpeg-core.js`,
-            "text/javascript",
+            "text/javascript"
           ),
           wasmURL: await toBlobURL(
             `${baseURL}/ffmpeg-core.wasm`,
-            "application/wasm",
+            "application/wasm"
           ),
         });
 
@@ -61,7 +96,7 @@ const VideoCutter = () => {
       } catch (error) {
         console.error("Failed to load FFmpeg:", error);
         setErrorMessage(
-          "Failed to load video processing library. Please try again later.",
+          "Failed to load video processing library. Please try again later."
         );
         setLoadingProgress("Failed to load FFmpeg");
       }
@@ -82,7 +117,7 @@ const VideoCutter = () => {
     if (videoRef.current) {
       const videoDuration = videoRef.current.duration;
       setDuration(videoDuration);
-      setEndTime(Math.min(videoDuration, 10).toFixed(1));
+      setEndTime(convertSecondsToTimeHHMMSS(videoDuration));
     }
   };
 
@@ -103,27 +138,40 @@ const VideoCutter = () => {
 
   // Validate time inputs
   const validateTimes = () => {
-    const start = parseFloat(startTime);
-    const end = parseFloat(endTime);
+    const {
+      hours: startHours,
+      minutes: startMinutes,
+      seconds: startSeconds,
+    } = startTime;
+    const {
+      hours: endHours,
+      minutes: endMinutes,
+      seconds: endSeconds,
+    } = endTime;
 
-    if (isNaN(start) || isNaN(end)) {
-      setErrorMessage("Start and end times must be numbers.");
-      return false;
-    }
-
-    if (start < 0 || end < 0) {
+    if (
+      startHours < 0 ||
+      startMinutes < 0 ||
+      startSeconds < 0 ||
+      endHours < 0 ||
+      endMinutes < 0 ||
+      endSeconds < 0
+    ) {
       setErrorMessage("Times cannot be negative.");
       return false;
     }
 
-    if (start >= end) {
+    const startTimeSeconds = convertTimeToSeconds(startTime);
+    const endTimeSeconds = convertTimeToSeconds(endTime);
+
+    if (startTimeSeconds >= endTimeSeconds) {
       setErrorMessage("End time must be greater than start time.");
       return false;
     }
 
-    if (duration > 0 && end > duration) {
+    if (duration > 0 && endTimeSeconds > duration) {
       setErrorMessage(
-        `End time cannot exceed video duration (${duration.toFixed(1)}s).`,
+        `End time cannot exceed video duration (${duration.toFixed(1)}s).`
       );
       return false;
     }
@@ -155,11 +203,11 @@ const VideoCutter = () => {
       // Run FFmpeg command to cut the video
       await ffmpeg.exec([
         "-ss",
-        startTime,
+        getTimeFormatString(startTime),
         "-i",
         "input.mp4",
         "-to",
-        getTimeDelta(startTime, endTime),
+        getTimeDiffInSeconds(startTime, endTime),
         "-c",
         "copy",
         outputFileName,
@@ -179,7 +227,9 @@ const VideoCutter = () => {
       // Create an invisible anchor element for download
       const a = document.createElement("a");
       a.href = url;
-      a.download = `trimmed_${startTime}s-${endTime}s_${videoFile.name}`;
+      a.download = `trimmed_${convertTimeToSeconds(
+        startTime
+      )}s_to_${convertTimeToSeconds(endTime)}s_${videoFile.name}`;
 
       // Programmatically click the anchor to trigger the save dialog
       document.body.appendChild(a);
@@ -194,17 +244,12 @@ const VideoCutter = () => {
     } catch (error) {
       console.error("Error during video processing:", error);
       setErrorMessage(
-        `Error processing video: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Error processing video: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
       setIsProcessing(false);
     }
-  };
-
-  // Format time display
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -264,7 +309,9 @@ const VideoCutter = () => {
           {duration > 0 && (
             <div className="text-center mt-2 text-gray-600">
               <p>
-                Duration: {formatTime(duration)} ({duration.toFixed(1)}s)
+                Duration:{" "}
+                {getTimeFormatString(convertSecondsToTimeHHMMSS(duration))} (
+                {duration.toFixed(1)}s)
               </p>
             </div>
           )}
@@ -273,44 +320,32 @@ const VideoCutter = () => {
 
       {/* Time Input Fields */}
       <div className="w-full max-w-md grid grid-cols-2 gap-6 mb-6">
-        <div>
-          <label className="block text-lg font-medium mb-2 text-gray-700">
-            Start Time (seconds):
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.1"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <div>
-          <label className="block text-lg font-medium mb-2 text-gray-700">
-            End Time (seconds):
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.1"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+        <TimeInput
+          label="Start Time"
+          time={startTime}
+          onChangeTime={setStartTime}
+        />
+        <TimeInput label="End Time" time={endTime} onChangeTime={setEndTime} />
       </div>
 
       {/* Time Preview */}
-      {duration > 0 && (
-        <div className="w-full max-w-md mb-6 p-4 bg-gray-50 rounded-lg">
+      <div className="w-full max-w-md mb-6 p-4 bg-gray-50 rounded-lg">
+        {Number(getTimeDiffInSeconds(startTime, endTime)) >= 0 ? (
           <p className="text-center text-gray-600">
-            Clip duration:{" "}
-            {formatTime(parseFloat(endTime) - parseFloat(startTime))}(
-            {(parseFloat(endTime) - parseFloat(startTime)).toFixed(1)}s)
+            {`duration: ${getTimeFormatString(
+              convertSecondsToTimeHHMMSS(
+                Number(getTimeDiffInSeconds(startTime, endTime))
+              )
+            )}`}
           </p>
-        </div>
-      )}
+        ) : (
+          <p className="text-center">
+            <span className="text-red-600 font-medium">
+              Start time must be less than end time.
+            </span>
+          </p>
+        )}
+      </div>
 
       {/* Error Message */}
       {errorMessage && (
@@ -355,12 +390,8 @@ const VideoCutter = () => {
         <ol className="list-decimal pl-6 space-y-2 text-gray-700">
           <li>Upload a video file using the "Select Video File" button</li>
           <li>Preview your video and note the total duration</li>
-          <li>
-            Enter the start time (in seconds) where you want the clip to begin
-          </li>
-          <li>
-            Enter the end time (in seconds) where you want the clip to end
-          </li>
+          <li>Enter the start time where you want the clip to begin</li>
+          <li>Enter the end time where you want the clip to end</li>
           <li>
             Click "Cut Video & Download" to process and save the trimmed video
           </li>
