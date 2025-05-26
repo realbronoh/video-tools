@@ -4,3 +4,5 @@ export interface time_hhmmss {
   minutes: number; // 0-59
   seconds: number; // 0-59
 }
+
+export type Seconds = number;

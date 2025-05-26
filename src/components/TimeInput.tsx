@@ -1,19 +1,27 @@
 import type React from "react";
-import type { time_hhmmss } from "../types/time";
+import type { Seconds, time_hhmmss } from "../types/time";
+import {
+  convertSecondsToTimeHHMMSS,
+  convertTimeToSeconds,
+} from "../utils/time";
 
 interface TimeInputProps {
   label: string;
-  time: time_hhmmss;
-  onChangeTime: (time: time_hhmmss) => void;
+  time: Seconds;
+  onChangeTime: (time: Seconds) => void;
 }
 
 const EachTimeInput = (props: {
   mode: "hours" | "minutes" | "seconds";
   value: number;
-  updateTime: (time: time_hhmmss) => void;
-  time: time_hhmmss;
+  updateTime: (time: Seconds) => void;
+  time: Seconds;
 }) => {
-  const { value, updateTime, mode } = props;
+  const { value, updateTime, mode, time } = props;
+
+  const isHours = mode === "hours";
+  const isMinutes = mode === "minutes";
+  const isSeconds = mode === "seconds";
 
   return (
     <input
@@ -21,13 +29,16 @@ const EachTimeInput = (props: {
       value={value}
       className="w-16 p-2 border rounded text-center"
       min="0"
-      max={mode === "seconds" || mode === "minutes" ? "59" : undefined}
-      step="1"
+      max={isSeconds || isMinutes ? "59" : undefined}
+      step={isSeconds ? "0.1" : "1"}
       placeholder="0"
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-        function isNonNegativeInteger(num: any) {
+        const isNonNegativeInteger = (num: any) => {
           return Number.isInteger(num) && num >= 0;
-        }
+        };
+        const resetValue = () => {
+          e.target.value = "0";
+        };
 
         const valueNum = Number(e.target.value);
         if (isNaN(valueNum)) {
@@ -35,17 +46,40 @@ const EachTimeInput = (props: {
           e.target.value = "0";
           return;
         }
-        // Ensure the value is a non-negative integer
-        if (!isNonNegativeInteger(valueNum)) {
-          alert("Please enter a non-negative integer");
-          e.target.value = "0";
-          return;
+        if (isHours) {
+          if (!isNonNegativeInteger(valueNum)) {
+            alert("Please enter a non-negative integer for hours.");
+            resetValue();
+            return;
+          }
+        } else if (isMinutes) {
+          if (!isNonNegativeInteger(valueNum) || valueNum > 59) {
+            alert(
+              "Please enter a non-negative integer between 0 and 59 for minutes.",
+            );
+            resetValue();
+            return;
+          }
+        } else {
+          // isSeconds
+          if (valueNum < 0 || valueNum >= 60) {
+            alert(
+              "Please enter a non-negative number between 0 and 60 for seconds.",
+            );
+            resetValue();
+            return;
+          }
         }
 
-        updateTime({
-          ...props.time,
+        const { hours, minutes, seconds } = convertSecondsToTimeHHMMSS(time);
+        const newTimeHHMMSS: time_hhmmss = {
+          hours,
+          minutes,
+          seconds,
           [mode]: valueNum,
-        });
+        };
+        const newTime = convertTimeToSeconds(newTimeHHMMSS);
+        updateTime(newTime);
       }}
     />
   );
@@ -53,7 +87,7 @@ const EachTimeInput = (props: {
 
 const TimeInput = (props: TimeInputProps) => {
   const { label, time, onChangeTime } = props;
-  const { hours, minutes, seconds } = time;
+  const { hours, minutes, seconds } = convertSecondsToTimeHHMMSS(time);
 
   return (
     <div className="mb-4">
