@@ -1,46 +1,171 @@
-import React, { useRef } from "react";
+import React, { useRef, useState, useEffect } from "react";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile } from "@ffmpeg/util";
 import TimeInput from "./TimeInput";
 import { getTimeFormatString, getTimeDiff } from "../utils/time";
 import type { Seconds } from "../types/time";
 
 interface VideoCutterContentProps {
-  videoFile: File | null;
-  videoUrl: string;
-  startTime: Seconds;
-  endTime: Seconds;
-  duration: number;
-  errorMessage: string;
-  isProcessing: boolean;
-  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onStartTimeChange: (time: Seconds) => void;
-  onEndTimeChange: (time: Seconds) => void;
-  onProcess: () => void;
-  handleLoadedMetadata: () => void;
+  ffmpeg: FFmpeg;
 }
 
-const VideoCutterContent: React.FC<VideoCutterContentProps> = ({
-  videoFile,
-  videoUrl,
-  startTime,
-  endTime,
-  duration,
-  errorMessage,
-  isProcessing,
-  onFileChange,
-  onStartTimeChange,
-  onEndTimeChange,
-  onProcess,
-  handleLoadedMetadata,
-}) => {
+const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
+  // File states
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState("");
+
+  // Time states
+  const [startTime, setStartTime] = useState<Seconds>(0);
+  const [endTime, setEndTime] = useState<Seconds>(0);
+  const [duration, setDuration] = useState(0);
+
+  // UI states
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isHoveringUpload, setIsHoveringUpload] = useState(false);
+
+  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+      }
+    };
+  }, [videoUrl]);
+
+  // Validation effect
+  useEffect(() => {
+    if (startTime < 0 || endTime < 0) {
+      setErrorMessage("Times cannot be negative.");
+      return;
+    }
+
+    if (startTime >= endTime) {
+      setErrorMessage("End time must be greater than start time.");
+      return;
+    }
+
+    if (duration > 0 && endTime > duration) {
+      setErrorMessage(
+        `End time cannot exceed video duration (${duration.toFixed(1)}s).`,
+      );
+      return;
+    }
+
+    setErrorMessage("");
+  }, [startTime, endTime, duration]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setVideoFile(file);
+      if (videoUrl) {
+        URL.revokeObjectURL(videoUrl);
+      }
+      const url = URL.createObjectURL(file);
+      setVideoUrl(url);
+      setErrorMessage("");
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    const video = videoRef.current;
+    if (video) {
+      const videoDuration = video.duration;
+      setDuration(videoDuration);
+      setEndTime(videoDuration);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && droppedFile.type.startsWith("video/")) {
+      const fakeEvent = {
+        target: {
+          files: [droppedFile],
+        },
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      handleFileChange(fakeEvent);
+    }
+  };
+
+  const processVideo = async () => {
+    if (!videoFile) return;
+
+    try {
+      setIsProcessing(true);
+
+      await ffmpeg.writeFile("input.mp4", await fetchFile(videoFile));
+      const fileExtension = videoFile.name.split(".").pop() || "mp4";
+      const outputFileName = `output.${fileExtension}`;
+
+      await ffmpeg.exec([
+        "-ss",
+        getTimeFormatString(startTime),
+        "-i",
+        "input.mp4",
+        "-to",
+        getTimeDiff(startTime, endTime).toString(),
+        "-c",
+        "copy",
+        outputFileName,
+      ]);
+
+      const data = await ffmpeg.readFile(outputFileName);
+      const blob = new Blob([data], { type: `video/${fileExtension}` });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `trimmed_${startTime.toString().replace(".", "_")}_to_${endTime.toString().replace(".", "_")}s_${videoFile.name}`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setIsProcessing(false);
+    } catch (error) {
+      console.error("Error during video processing:", error);
+      setErrorMessage(
+        `Error processing video: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+      setIsProcessing(false);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center p-6 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-8 text-gray-800">Video Cutter</h1>
 
       {/* File Upload Section */}
-      <div className="w-full mb-6">
+      <div
+        className={`w-full mb-6 ${isDraggingFile ? "bg-blue-50" : ""}`}
+        onDragEnter={handleDragEnter}
+        onDragOver={(e) => e.preventDefault()}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <label className="block text-lg font-medium mb-3 text-gray-700">
           Upload Video File:
         </label>
@@ -48,15 +173,19 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({
           <input
             type="file"
             accept="video/*"
-            onChange={onFileChange}
+            onChange={handleFileChange}
             ref={fileInputRef}
             className="hidden"
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded-lg font-medium transition-colors"
+            onMouseEnter={() => setIsHoveringUpload(true)}
+            onMouseLeave={() => setIsHoveringUpload(false)}
+            className={`bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded-lg font-medium transition-colors ${
+              isHoveringUpload ? "scale-105" : ""
+            } transform transition-transform duration-200`}
           >
-            Select Video File
+            {isDraggingFile ? "Drop Video Here" : "Select Video File"}
           </button>
           {videoFile && (
             <span className="text-gray-600">
@@ -79,7 +208,8 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({
           {duration > 0 && (
             <div className="text-center mt-2 text-gray-600">
               <p>
-                Duration: {getTimeFormatString(duration)} ({duration.toFixed(1)}s)
+                Duration: {getTimeFormatString(duration)} ({duration.toFixed(1)}
+                s)
               </p>
             </div>
           )}
@@ -91,13 +221,9 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({
         <TimeInput
           label="Start Time"
           time={startTime}
-          onChangeTime={onStartTimeChange}
+          onChangeTime={setStartTime}
         />
-        <TimeInput
-          label="End Time"
-          time={endTime}
-          onChangeTime={onEndTimeChange}
-        />
+        <TimeInput label="End Time" time={endTime} onChangeTime={setEndTime} />
       </div>
 
       {/* Time Preview */}
@@ -124,10 +250,10 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({
 
       {/* Process Button */}
       <button
-        onClick={onProcess}
-        disabled={!videoFile || isProcessing}
+        onClick={processVideo}
+        disabled={!videoFile || isProcessing || !!errorMessage}
         className={`w-full max-w-md py-3 px-6 rounded-lg text-lg font-medium transition-colors ${
-          !videoFile || isProcessing
+          !videoFile || isProcessing || !!errorMessage
             ? "bg-gray-400 cursor-not-allowed text-gray-600"
             : "bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl"
         }`}
@@ -156,12 +282,19 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({
       <div className="w-full max-w-2xl mt-8 p-6 bg-gray-50 rounded-lg">
         <h2 className="text-xl font-bold mb-4 text-gray-800">How to Use:</h2>
         <ol className="list-decimal pl-6 space-y-2 text-gray-700">
-          <li>Upload a video file using the "Select Video File" button</li>
+          <li>
+            Upload a video file using the "Select Video File" button or drag and
+            drop
+          </li>
           <li>Preview your video and note the total duration</li>
           <li>Enter the start time where you want the clip to begin</li>
           <li>Enter the end time where you want the clip to end</li>
-          <li>Click "Cut Video & Download" to process and save the trimmed video</li>
-          <li>The trimmed video will be automatically downloaded to your device</li>
+          <li>
+            Click "Cut Video & Download" to process and save the trimmed video
+          </li>
+          <li>
+            The trimmed video will be automatically downloaded to your device
+          </li>
         </ol>
 
         <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
