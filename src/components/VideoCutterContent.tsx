@@ -148,7 +148,9 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
     } catch (error) {
       console.error("Error during video processing:", error);
       setErrorMessage(
-        `Error processing video: ${error instanceof Error ? error.message : "Unknown error"}`,
+        `Error processing video: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
       );
       setIsProcessing(false);
     }
@@ -195,89 +197,98 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
         </div>
       </div>
 
-      {/* Video Preview */}
-      {videoUrl && (
-        <div className="w-full mb-6">
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            controls
-            className="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
-            onLoadedMetadata={handleLoadedMetadata}
-          />
-          {duration > 0 && (
-            <div className="text-center mt-2 text-gray-600">
-              <p>
-                Duration: {getTimeFormatString(duration)} ({duration.toFixed(1)}
-                s)
-              </p>
+      {/* Conditionally Rendered UI Based on Video File */}
+      {videoFile && (
+        <>
+          {/* Video Preview */}
+          {videoUrl && (
+            <div className="w-full mb-6">
+              <video
+                ref={videoRef}
+                src={videoUrl}
+                controls
+                className="w-full max-w-2xl mx-auto rounded-lg shadow-lg"
+                onLoadedMetadata={handleLoadedMetadata}
+              />
+              {duration > 0 && (
+                <div className="text-center mt-2 text-gray-600">
+                  <p>
+                    Duration: {getTimeFormatString(duration)} (
+                    {duration.toFixed(1)}s)
+                  </p>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Time Input Fields */}
-      <div className="w-full max-w-md grid grid-cols-2 gap-6 mb-6">
-        <TimeInput
-          label="Start Time"
-          time={startTime}
-          onChangeTime={setStartTime}
-        />
-        <TimeInput label="End Time" time={endTime} onChangeTime={setEndTime} />
-      </div>
-
-      {/* Time Preview */}
-      <div className="w-full max-w-md mb-6 p-4 bg-gray-50 rounded-lg">
-        {startTime < endTime ? (
-          <p className="text-center text-gray-600">
-            {`duration: ${getTimeDiff(startTime, endTime)}s`}
-          </p>
-        ) : (
-          <p className="text-center">
-            <span className="text-red-600 font-medium">
-              Start time must be less than end time.
-            </span>
-          </p>
-        )}
-      </div>
-
-      {/* Error Message */}
-      {errorMessage && (
-        <div className="w-full max-w-md mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-          {errorMessage}
-        </div>
-      )}
-
-      {/* Process Button */}
-      <button
-        onClick={processVideo}
-        disabled={!videoFile || isProcessing || !!errorMessage}
-        className={`w-full max-w-md py-3 px-6 rounded-lg text-lg font-medium transition-colors ${
-          !videoFile || isProcessing || !!errorMessage
-            ? "bg-gray-400 cursor-not-allowed text-gray-600"
-            : "bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl"
-        }`}
-      >
-        {isProcessing ? (
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-            Processing Video...
+          {/* Time Input Fields */}
+          <div className="w-full max-w-md grid grid-cols-2 gap-6 mb-6">
+            <TimeInput
+              label="Start Time"
+              time={startTime}
+              onChangeTime={setStartTime}
+            />
+            <TimeInput
+              label="End Time"
+              time={endTime}
+              onChangeTime={setEndTime}
+            />
           </div>
-        ) : (
-          "Cut Video & Download"
-        )}
-      </button>
 
-      {/* Status Information */}
-      <div className="w-full max-w-md mt-6 text-center">
-        {isProcessing && (
-          <p className="text-gray-600">
-            This may take a while depending on your video size and device
-            performance.
-          </p>
-        )}
-      </div>
+          {/* Time Preview */}
+          <div className="w-full max-w-md mb-6 p-4 bg-gray-50 rounded-lg">
+            {startTime < endTime ? (
+              <p className="text-center text-gray-600">{`duration: ${getTimeDiff(
+                startTime,
+                endTime,
+              )}s`}</p>
+            ) : (
+              <p className="text-center">
+                <span className="text-red-600 font-medium">
+                  Start time must be less than end time.
+                </span>
+              </p>
+            )}
+          </div>
 
+          {/* Error Message */}
+          {errorMessage && (
+            <div className="w-full max-w-md mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Process Button */}
+          <button
+            onClick={processVideo}
+            disabled={!videoFile || isProcessing || !!errorMessage}
+            className={`w-full max-w-md py-3 px-6 rounded-lg text-lg font-medium transition-colors ${
+              !videoFile || isProcessing || !!errorMessage
+                ? "bg-gray-400 cursor-not-allowed text-gray-600"
+                : "bg-green-500 hover:bg-green-600 text-white shadow-lg hover:shadow-xl"
+            }`}
+          >
+            {isProcessing ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                Processing Video...
+              </div>
+            ) : (
+              "Cut Video & Download"
+            )}
+          </button>
+
+          {/* Status Information */}
+          <div className="w-full max-w-md mt-6 text-center">
+            {isProcessing && (
+              <p className="text-gray-600">
+                This may take a while depending on your video size and device
+                performance.
+              </p>
+            )}
+          </div>
+        </>
+      )}
       {/* Instructions */}
       <div className="w-full max-w-2xl mt-8 p-6 bg-gray-50 rounded-lg">
         <h2 className="text-xl font-bold mb-4 text-gray-800">How to Use:</h2>
