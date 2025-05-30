@@ -22,8 +22,6 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
   // UI states
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [isHoveringUpload, setIsHoveringUpload] = useState(false);
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,19 +83,16 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingFile(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingFile(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDraggingFile(false);
 
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.type.startsWith("video/")) {
@@ -162,16 +157,16 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
 
       {/* File Upload Section */}
       <div
-        className={`w-full mb-6 ${isDraggingFile ? "bg-blue-50" : ""}`}
+        className={`flex flex-col items-center w-full mb-6 p-6 border-dotted border-2 border-gray-300 rounded-2xl bg-gray-100 hover:bg-gray-200 cursor-pointer transition-colors duration-200 ease-in-out`}
         onDragEnter={handleDragEnter}
         onDragOver={(e) => e.preventDefault()}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <label className="block text-lg font-medium mb-3 text-gray-700">
-          Upload Video File:
-        </label>
-        <div className="flex items-center gap-4">
+        <div
+          className="w-full h-28 flex flex-col items-center justify-center gap-6 cursor-pointer"
+          onClick={() => fileInputRef.current?.click()}
+        >
           <input
             type="file"
             accept="video/*"
@@ -179,19 +174,13 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
             ref={fileInputRef}
             className="hidden"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            onMouseEnter={() => setIsHoveringUpload(true)}
-            onMouseLeave={() => setIsHoveringUpload(false)}
-            className={`bg-blue-500 hover:bg-blue-600 text-white py-2 px-6 rounded-lg font-medium transition-colors ${
-              isHoveringUpload ? "scale-105" : ""
-            } transform transition-transform duration-200`}
-          >
-            {isDraggingFile ? "Drop Video Here" : "Select Video File"}
-          </button>
+          <p className={`text-gray-600 mb-2 text-lg font-bold`}>
+            {`${videoFile ? "Replace" : "Upload"} Your Video by Click or Drag & Drop`}
+          </p>
           {videoFile && (
             <span className="text-gray-600">
-              {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(1)} MB)
+              UploadedFile: {videoFile.name} (
+              {(videoFile.size / 1024 / 1024).toFixed(1)} MB)
             </span>
           )}
         </div>
@@ -293,10 +282,7 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
       <div className="w-full max-w-2xl mt-8 p-6 bg-gray-50 rounded-lg">
         <h2 className="text-xl font-bold mb-4 text-gray-800">How to Use:</h2>
         <ol className="list-decimal pl-6 space-y-2 text-gray-700">
-          <li>
-            Upload a video file using the "Select Video File" button or drag and
-            drop
-          </li>
+          <li>Upload your video</li>
           <li>Preview your video and note the total duration</li>
           <li>Enter the start time where you want the clip to begin</li>
           <li>Enter the end time where you want the clip to end</li>
