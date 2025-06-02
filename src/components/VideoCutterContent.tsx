@@ -211,14 +211,14 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
           )}
 
           {/* Time Input Fields */}
-          <div className="w-full max-w-md grid grid-cols-2 gap-6 mb-6">
+          <div className="w-full max-w-md flex justify-center items-center gap-8 mb-6">
             <TimeInput
-              label="Start Time"
+              label="Start Time (s)"
               time={startTime}
               onChangeTime={setStartTime}
             />
             <TimeInput
-              label="End Time"
+              label="End Time (s)"
               time={endTime}
               onChangeTime={setEndTime}
             />

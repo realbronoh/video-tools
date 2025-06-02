@@ -27,7 +27,7 @@ const EachTimeInput = (props: {
     <input
       type="number"
       value={value}
-      className="w-16 p-2 border rounded text-center"
+      className="w-18 p-2 border rounded text-center"
       min="0"
       max={isSeconds || isMinutes ? "59" : undefined}
       step={isSeconds ? "0.1" : "1"}
@@ -91,7 +91,7 @@ const TimeInput = (props: TimeInputProps) => {
 
   return (
     <div className="mb-4">
-      <label className="block text-sm font-medium mb-2">{label}</label>
+      <label className="block text-sm font-bold mb-2">{label}</label>
       <div className="flex items-center space-x-2">
         <EachTimeInput
           mode="hours"
