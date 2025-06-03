@@ -4,6 +4,7 @@ import { fetchFile } from "@ffmpeg/util";
 import TimeInput from "./TimeInput";
 import { getTimeFormatString, getTimeDiff } from "../utils/time";
 import type { Seconds } from "../types/time";
+import FoldableInstructions from "./FoldableInstructions";
 
 interface VideoCutterContentProps {
   ffmpeg: FFmpeg;
@@ -50,7 +51,7 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
 
     if (duration > 0 && endTime > duration) {
       setErrorMessage(
-        `End time cannot exceed video duration (${duration.toFixed(1)}s).`,
+        `End time cannot exceed video duration (${duration.toFixed(1)}s).`
       );
       return;
     }
@@ -133,7 +134,11 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `trimmed_${startTime.toString().replace(".", "_")}_to_${endTime.toString().replace(".", "_")}s_${videoFile.name}`;
+      a.download = `trimmed_${startTime
+        .toString()
+        .replace(".", "_")}_to_${endTime.toString().replace(".", "_")}s_${
+        videoFile.name
+      }`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -145,7 +150,7 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
       setErrorMessage(
         `Error processing video: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`,
+        }`
       );
       setIsProcessing(false);
     }
@@ -175,7 +180,9 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
             className="hidden"
           />
           <p className={`text-gray-600 mb-2 text-lg font-bold`}>
-            {`${videoFile ? "Replace" : "Upload"} Your Video by Click or Drag & Drop`}
+            {`${
+              videoFile ? "Replace" : "Upload"
+            } Your Video by Click or Drag & Drop`}
           </p>
           {videoFile && (
             <span className="text-gray-600">
@@ -229,7 +236,7 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
             {startTime < endTime ? (
               <p className="text-center text-gray-600">{`duration: ${getTimeDiff(
                 startTime,
-                endTime,
+                endTime
               )}s`}</p>
             ) : (
               <p className="text-center">
@@ -278,30 +285,9 @@ const VideoCutterContent: React.FC<VideoCutterContentProps> = ({ ffmpeg }) => {
           </div>
         </>
       )}
-      {/* Instructions */}
-      <div className="w-full max-w-2xl mt-8 p-6 bg-gray-50 rounded-lg">
-        <h2 className="text-xl font-bold mb-4 text-gray-800">How to Use:</h2>
-        <ol className="list-decimal pl-6 space-y-2 text-gray-700">
-          <li>Upload your video</li>
-          <li>Preview your video and note the total duration</li>
-          <li>Enter the start time where you want the clip to begin</li>
-          <li>Enter the end time where you want the clip to end</li>
-          <li>
-            Click "Cut Video & Download" to process and save the trimmed video
-          </li>
-          <li>
-            The trimmed video will be automatically downloaded to your device
-          </li>
-        </ol>
 
-        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
-          <p className="text-yellow-800 text-sm">
-            <strong>Note:</strong> This tool runs entirely in your browser. No
-            files are uploaded to any server. Larger videos may take longer to
-            process.
-          </p>
-        </div>
-      </div>
+      {/* Instructions (Foldable) */}
+      <FoldableInstructions />
     </div>
   );
 };
